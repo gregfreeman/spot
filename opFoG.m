@@ -67,7 +67,7 @@ classdef opFoG < opSpot
           op = op@opSpot('FoG', m, n);
           op.cflag    = A.cflag  | B.cflag;
           op.linear   = A.linear | B.linear;
-          op.sweepflag= A.sweepflag & B.sweepflag;
+          op.sweepflag= A.sweepflag | B.sweepflag;
           op.children = {A, B};
           op.precedence = 3;
 
