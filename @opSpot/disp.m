@@ -15,9 +15,6 @@ function disp(A,name)
       error('Not enough input arguments.');
    end
    
-   if A.linear, linear = 'yes';
-   else         linear = 'no';
-   end
    if A.cflag,  cflag = 'yes';
    else         cflag = 'no';
    end
