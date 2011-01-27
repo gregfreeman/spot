@@ -90,11 +90,15 @@ classdef opSpot
                    else
                       y = zeros(op.n,q);
                    end
+                
+                    for i=1:q
+                        y(:,i) = op.multiply(x(:,i),mode);
+                    end
+                    
+                else
+                    y = op.multiply(x,mode);
                 end
                 
-                for i=1:q
-                    y(:,i) = op.multiply(x(:,i),mode);
-                end
             end
         end
         

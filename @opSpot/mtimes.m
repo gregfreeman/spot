@@ -28,7 +28,7 @@ function y = mtimes(A,B)
 %               If so, then we recast this as (C'*s)', which results in
 %               a call to the "usual" matrix-vector product.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if isnumeric(A)
+if ~isa(A, 'opSpot')
     if isscalar(A) && (B.m ~= 1)
        % s*C (mode 3)
        y = opFoG(A,B);
@@ -43,7 +43,7 @@ if isnumeric(A)
 %               If so, then we recast this as (C'*s)', which results in
 %               a call to the "usual" matrix-vector product.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-elseif isnumeric(B)
+elseif ~isa(B, 'opSpot')
    if isscalar(B)
       if A.n ~= 1
          % C*s (mode 4)
