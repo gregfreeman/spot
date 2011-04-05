@@ -95,6 +95,33 @@ classdef opKron < opSpot
             end
             str=strcat(str,')');
         end % Char
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Permute
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function A = permute(op,varargin)
+            
+            % Setup variables
+            children = op.children;
+            perm = [varargin{:}];
+            
+            % Flip children to intuitive application order
+            children = fliplr(children);
+            
+            % Apply permutation to children
+            new_children = cell(1,length(children));
+            for i = 1:length(perm)
+                new_children{i} = children{perm(i)};
+            end
+            
+            % Flip new_children
+            new_children = fliplr(new_children);
+            
+            % Construct new opKron
+            A = opKron(new_children{:});
+            
+        end % permute
+        
     end % Methods
     
     
