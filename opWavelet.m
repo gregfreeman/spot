@@ -15,10 +15,16 @@ classdef opWavelet < opOrthogonal
 %   the wavelet is redundant. TYPE (default 'min') indictates what type of
 %   solution is desired; 'min' for minimum phase, 'max' for maximum phase,
 %   and 'mid' for mid-phase solutions. 
+%
+%   opWavelet(M,N,H,LEVELS) allows using a generic filter specified
+%   by kernel H
+%
 
 %   Copyright 2007-2009, Rayan Saab, Ewout van den Berg and Michael P. Friedlander
 %   See the file COPYING.txt for full copyright information.
 %   Use the command 'spot.gpl' to locate this file.
+%
+%   2011 Greg Freeman - added the generic filter form of parameters
 
 %   http://www.cs.ubc.ca/labs/scl/spot
 
@@ -47,58 +53,88 @@ classdef opWavelet < opOrthogonal
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       function op = opWavelet(p,q,family,lenFilter,levels,redundant,typeFilter)
          
-         if nargin < 5 || isempty(levels)
-            levels = 5;
+         is_generic_filter=false;
+         if nargin >= 3 && ~isempty(family) && ~ischar(family)
+             % use generic filter type
+             is_generic_filter=true;
+
+
+             if nargin >= 4 && ~isempty(lenFilter)
+                 levels=lenFilter;  % rename parameter for generic filter
+             else 
+                 levels=5;
+             end
+             if nargin > 4 
+                 warning('unexpected parameters for generic filter');
+             end
+
+             m = p*q;
+             n = p*q;
+             redundant = false;
+             nseg = [];
+                         
+         else  
+          
+             if nargin < 5 || isempty(levels)
+                levels = 5;
+             end
+             if nargin >= 6 && redundant
+                if p == 1 || q == 1
+                   nseg =   levels + 1;
+                else
+                   nseg = 3*levels + 1;
+                end
+                m = p*q*nseg;
+                n = p*q;
+                redundant = true;
+             else
+                nseg = [];
+                m = p*q;
+                n = p*q;
+                redundant = false;
+             end
          end
-         if nargin >= 6 && redundant
-            if p == 1 || q == 1
-               nseg =   levels + 1;
-            else
-               nseg = 3*levels + 1;
-            end
-            m = p*q*nseg;
-            n = p*q;
-            redundant = true;
-         else
-            nseg = [];
-            m = p*q;
-            n = p*q;
-            redundant = false;
-         end
-         
+
          op = op@opOrthogonal('Wavelet', m, n);
          op.signal_dims = [p, q];
          op.levels      = levels;
          op.redundant   = redundant;
          op.nseg        = nseg;
-         
-         if nargin >= 3 && ~isempty(family)
-            op.family = family;
-         end
-         if nargin >= 4 && ~isempty(lenFilter)
-            op.lenFilter = lenFilter;
-         end
-         if nargin >= 7 && ischar(typeFilter)
-            op.typeFilter  = typeFilter;
-         end
-         
-         if length(op.lenFilter) > 1
-            op.family    = family;
-            op.filter    = op.lenFilter;
-            op.lenFilter = length(op.filter);
+
+         if is_generic_filter
+             op.filter = family;
+             op.lenFilter = length(op.filter);
+             op.family = 'Generic';
          else
-            switch lower(op.family)
-               case {'daubechies'}
-                  op.family = 'Daubechies';
-                  op.filter = spot.rwt.daubcqf(op.lenFilter,op.typeFilter);
-               
-               case {'haar'}
-                  op.family = 'Haar';
-                  op.filter = spot.rwt.daubcqf(0);
-               
-               otherwise
-                  error('Wavelet family %s is unknown.', family);
-            end
+             %use named filter type
+             if nargin >= 3 && ~isempty(family)
+                op.family = family;
+             end
+             if nargin >= 4 && ~isempty(lenFilter)
+                op.lenFilter = lenFilter;
+             end
+             if nargin >= 7 && ischar(typeFilter)
+                op.typeFilter  = typeFilter;
+             end
+
+             if length(op.lenFilter) > 1
+                op.family    = family;
+                op.filter    = op.lenFilter;
+                op.lenFilter = length(op.filter);
+             else
+                switch lower(op.family)
+                   case {'daubechies'}
+                      op.family = 'Daubechies';
+                      op.filter = spot.rwt.daubcqf(op.lenFilter,op.typeFilter);
+
+                   case {'haar'}
+                      op.family = 'Haar';
+                      op.filter = spot.rwt.daubcqf(0);
+
+                   otherwise
+                      error('Wavelet family %s is unknown.', family);
+                end
+             end
          end
          
          % Initialize function handle
