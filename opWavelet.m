@@ -16,9 +16,12 @@ classdef opWavelet < opOrthogonal
 %   solution is desired; 'min' for minimum phase, 'max' for maximum phase,
 %   and 'mid' for mid-phase solutions. 
 %
-%   opWavelet(M,N,H,LEVELS) allows using a generic filter specified
-%   by kernel H
+%   opWavelet(M,N,'custom',H,...) allows using a generic filter specified
+%   by kernel H  (any filter name with numel(H)>1 works)
 %
+%   opWavelet(M,N,'pyr_tools',H,...) allows using a generic filter specified
+%   by kernel H using the matlabPyrTools library (circular filtering)
+%     (matlabPyrTools:  http://www.cns.nyu.edu/lcv/software.php)
 
 %   Copyright 2007-2009, Rayan Saab, Ewout van den Berg and Michael P. Friedlander
 %   See the file COPYING.txt for full copyright information.
@@ -53,46 +56,24 @@ classdef opWavelet < opOrthogonal
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       function op = opWavelet(p,q,family,lenFilter,levels,redundant,typeFilter)
          
-         is_generic_filter=false;
-         if nargin >= 3 && ~isempty(family) && ~ischar(family)
-             % use generic filter type
-             is_generic_filter=true;
-
-
-             if nargin >= 4 && ~isempty(lenFilter)
-                 levels=lenFilter;  % rename parameter for generic filter
-             else 
-                 levels=5;
-             end
-             if nargin > 4 
-                 warning('unexpected parameters for generic filter');
-             end
-
-             m = p*q;
-             n = p*q;
-             redundant = false;
-             nseg = [];
-                         
-         else  
-          
-             if nargin < 5 || isempty(levels)
-                levels = 5;
-             end
-             if nargin >= 6 && redundant
-                if p == 1 || q == 1
-                   nseg =   levels + 1;
-                else
-                   nseg = 3*levels + 1;
-                end
-                m = p*q*nseg;
-                n = p*q;
-                redundant = true;
-             else
-                nseg = [];
-                m = p*q;
-                n = p*q;
-                redundant = false;
-             end
+         
+         if nargin < 5 || isempty(levels)
+            levels = 5;
+         end
+         if nargin >= 6 && redundant
+            if p == 1 || q == 1
+               nseg =   levels + 1;
+            else
+               nseg = 3*levels + 1;
+            end
+            m = p*q*nseg;
+            n = p*q;
+            redundant = true;
+         else
+            nseg = [];
+            m = p*q;
+            n = p*q;
+            redundant = false;
          end
 
          op = op@opOrthogonal('Wavelet', m, n);
@@ -101,45 +82,41 @@ classdef opWavelet < opOrthogonal
          op.redundant   = redundant;
          op.nseg        = nseg;
 
-         if is_generic_filter
-             op.filter = family;
-             op.lenFilter = length(op.filter);
-             op.family = 'Generic';
+     
+         if nargin >= 3 && ~isempty(family)
+            op.family = family;
+         end
+         if nargin >= 4 && ~isempty(lenFilter)
+            op.lenFilter = lenFilter;
+         end
+         if nargin >= 7 && ischar(typeFilter)
+            op.typeFilter  = typeFilter;
+         end
+
+         if length(op.lenFilter) > 1
+            op.family    = family;
+            op.filter    = op.lenFilter;
+            op.lenFilter = length(op.filter);
          else
-             %use named filter type
-             if nargin >= 3 && ~isempty(family)
-                op.family = family;
-             end
-             if nargin >= 4 && ~isempty(lenFilter)
-                op.lenFilter = lenFilter;
-             end
-             if nargin >= 7 && ischar(typeFilter)
-                op.typeFilter  = typeFilter;
-             end
+            switch lower(op.family)
+               case {'daubechies'}
+                  op.family = 'Daubechies';
+                  op.filter = spot.rwt.daubcqf(op.lenFilter,op.typeFilter);
 
-             if length(op.lenFilter) > 1
-                op.family    = family;
-                op.filter    = op.lenFilter;
-                op.lenFilter = length(op.filter);
-             else
-                switch lower(op.family)
-                   case {'daubechies'}
-                      op.family = 'Daubechies';
-                      op.filter = spot.rwt.daubcqf(op.lenFilter,op.typeFilter);
+               case {'haar'}
+                  op.family = 'Haar';
+                  op.filter = spot.rwt.daubcqf(0);
 
-                   case {'haar'}
-                      op.family = 'Haar';
-                      op.filter = spot.rwt.daubcqf(0);
-
-                   otherwise
-                      error('Wavelet family %s is unknown.', family);
-                end
-             end
+               otherwise
+                  error('Wavelet family %s is unknown.', family);
+            end
          end
          
          % Initialize function handle
          if redundant
             op.funHandle = @multiply_redundant_intrnl;
+         elseif strcmp('pyr_tools',family)
+            op.funHandle = @multiply_intrnl_pyr_tools; 
          else
             op.funHandle = @multiply_intrnl;
          end
@@ -178,6 +155,47 @@ classdef opWavelet < opOrthogonal
             end
             y = y(:);
          end
+      end % function matvec
+      
+      
+
+      
+      function y = multiply_intrnl_pyr_tools(op,x,mode)
+         p = op.signal_dims(1);
+         q = op.signal_dims(2);
+         levels = op.levels; filter = op.filter;
+         if issparse(x), x = full(x); end
+         Xmat = reshape(x,p,q);
+         if mode == 1
+            if isreal(x)                
+               y  = pyr_tools_dwt(Xmat, filter, levels);
+            else
+               y1 = pyr_tools_dwt(real(Xmat), filter, levels);
+               y2 = pyr_tools_dwt(imag(Xmat), filter, levels);
+               y  = y1 + sqrt(-1) * y2;
+            end
+            y = y(:);
+         else
+            if isreal(x)
+               y = pyr_tools_idwt(Xmat, filter, levels);
+            else
+               y1 = pyr_tools_idwt(real(Xmat), filter, levels);
+               y2 = pyr_tools_idwt(imag(Xmat), filter, levels);
+               y  = y1 + sqrt(-1) * y2;
+            end
+            y = y(:);
+         end
+         
+         
+          function y = pyr_tools_dwt(x, filter, levels)
+              [pyr,pind] = buildWpyr(x,levels,filter,'circular');
+              y=pyrtools_ind2wimage(pyr,pind);%convert to 2d array
+          end
+
+          function y = pyr_tools_idwt(x, filter, levels)
+              [pyr,pind] = pyrtools_wimage2ind(x,levels);
+              [y] = reconWpyr(pyr,pind,filter,'circular');
+          end
       end % function matvec
       
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
