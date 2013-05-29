@@ -37,6 +37,8 @@ classdef opWavelet2 < opSpot
    %
    %   See the file COPYING.txt for full copyright information.
    %   Use the command 'spot.gpl' to locate this file.
+   %   GF: May 28, 2013  Add custom filter coefficients
+   %     opWavelet2(p,q,'',[w0 w1 w2 ...],levels,redundant,typeFilter)
    
    %   http://www.cs.ubc.ca/labs/scl/spot
    
@@ -120,8 +122,14 @@ classdef opWavelet2 < opSpot
                op.family = 'Haar';
                op.filter = spot.rwt.daubcqf(0);
                
-            otherwise
-               error('Wavelet family %s is unknown.', family);
+             otherwise
+                if length(lenFilter)>1
+                    op.filter=lenFilter;
+                    op.typeFilter='custom';
+                    op.lenFilter=length(lenFilter);
+                else
+                    error('Wavelet family %s is unknown.', family);
+                end
          end
          
          % Initialize function handle
