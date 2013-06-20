@@ -15,9 +15,7 @@ m=sum(pind(:,1).*pind(:,2));
 pyr=zeros(m,1);
 iBand=1;
 iIdx=1;
-tic
 imdft = fftshift(fft2(im));
-toc
 hi0mask = masks{iBand};
 hi0dft =  imdft .* hi0mask;
 hi0 = ifft2(ifftshift(hi0dft));
